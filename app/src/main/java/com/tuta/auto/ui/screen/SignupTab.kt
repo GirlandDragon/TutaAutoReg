@@ -146,6 +146,7 @@ fun SignupTab(app: TutaApp) {
                         loadUrl("https://app.tuta.com/signup")
                         webView = this
                         automator = SignupAutomator(this)
+                        }
                 },
                 modifier = Modifier.fillMaxSize()
             )

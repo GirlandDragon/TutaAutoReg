@@ -1,0 +1,4 @@
+-keep class com.tuta.auto.data.model.** { *; }
+-keep class * extends androidx.room.RoomDatabase
+-keep class * extends androidx.lifecycle.ViewModel
+-dontwarn org.jspecify.**

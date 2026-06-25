@@ -1,10 +1,8 @@
 package com.tuta.auto.ui.screen
 
-import android.annotation.SuppressLint
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,7 +34,6 @@ import com.tuta.auto.webview.EmailEntry
 import com.tuta.auto.webview.InboxAutomator
 import kotlinx.coroutines.launch
 
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun LoginTab(app: TutaApp) {
     val accounts by app.accountRepository.getAllAccounts().collectAsState(initial = emptyList())
@@ -56,13 +53,14 @@ fun LoginTab(app: TutaApp) {
             .padding(16.dp)
     ) {
         if (!loggedIn) {
-            Text(
-                text = "Select Account",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            LazyColumn(modifier = Modifier.weight(1f)) {
+            LazyColumn(modifier = Modifier.weight(0.4f)) {
+                item {
+                    Text(
+                        text = "Select Account",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
                 items(accounts) { account ->
                     Card(
                         onClick = {
@@ -87,176 +85,161 @@ fun LoginTab(app: TutaApp) {
                         )
                     }
                 }
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Email") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            webView?.loadUrl("https://app.tuta.com/login")
+                            statusText = "Loading login page..."
+                        },
+                        enabled = email.isNotBlank() && password.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Login & Check Inbox")
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Password") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = {
-                    webView?.loadUrl("https://app.tuta.com/login")
-                    statusText = "Loading login page..."
-                },
-                enabled = email.isNotBlank() && password.isNotBlank(),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Login & Check Inbox")
+            if (statusText.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         } else {
             Text(
                 text = "Inbox: $email",
                 style = MaterialTheme.typography.titleMedium
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            if (inboxEmails.isEmpty()) {
-                Text(
-                    text = "No messages found.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(inboxEmails) { entry ->
-                        EmailCard(entry)
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(inboxEmails) { entry ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = entry.subject,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                text = "${entry.sender}  \u2022  ${entry.time}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { automator?.fetchEmails() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Refresh")
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Button(
+                        onClick = {
+                            loggedIn = false
+                            inboxEmails = emptyList()
+                            statusText = ""
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Logout")
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = {
-                    automator?.fetchEmails()
-                    statusText = "Refreshing..."
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Refresh")
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Button(
-                onClick = {
-                    loggedIn = false
-                    inboxEmails = emptyList()
-                    statusText = ""
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Logout")
-            }
         }
 
-        Box(
+        // WebView for login automation - takes remaining space
+        AndroidView(
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.loadWithOverviewMode = true
+                    settings.useWideViewPort = true
+                    val currentAutomator = InboxAutomator(this)
+                    automator = currentAutomator
+                    webView = this
+
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+                            when {
+                                url?.contains("/login") == true -> {
+                                    currentAutomator.loginAndFetch(email, password)
+                                }
+                                url?.contains("/mail") == true -> {
+                                    currentAutomator.fetchEmails()
+                                }
+                            }
+                        }
+                    }
+
+                    currentAutomator.emails.observeForever { emails ->
+                        inboxEmails = emails
+                        loggedIn = true
+                        statusText = "Found ${emails.size} email(s)"
+                        val currentEmail = email
+                        scope.launch {
+                            val account = app.accountRepository.getAccountByEmail(currentEmail)
+                            account?.let { acct ->
+                                for (e in emails) {
+                                    app.messageRepository.insertMessage(
+                                        Message(
+                                            accountId = acct.id,
+                                            sender = e.sender,
+                                            subject = e.subject,
+                                            body = ""
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    currentAutomator.loginResult.observeForever { success ->
+                        statusText = if (success) "Logged in, fetching..." else "Login failed"
+                    }
+
+                    loadUrl("https://app.tuta.com/login")
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(0.dp)
-        ) {
-            AndroidView(
-                factory = { ctx ->
-                    WebView(ctx).apply {
-                        layoutParams = ViewGroup.LayoutParams(1, 1)
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        val currentAutomator = InboxAutomator(this)
-                        automator = currentAutomator
-                        webView = this
-
-                        webViewClient = object : WebViewClient() {
-                            override fun onPageFinished(view: WebView?, url: String?) {
-                                super.onPageFinished(view, url)
-                                when {
-                                    url?.contains("/login") == true -> {
-                                        currentAutomator.loginAndFetch(email, password)
-                                    }
-                                    url?.contains("/mail") == true -> {
-                                        currentAutomator.fetchEmails()
-                                    }
-                                }
-                            }
-                        }
-
-                        currentAutomator.emails.observeForever { emails ->
-                            inboxEmails = emails
-                            loggedIn = true
-                            statusText = "Found ${emails.size} email(s)"
-                            val currentEmail = email
-                            scope.launch {
-                                val account = app.accountRepository.getAccountByEmail(currentEmail)
-                                account?.let { acct ->
-                                    for (e in emails) {
-                                        app.messageRepository.insertMessage(
-                                            Message(
-                                                accountId = acct.id,
-                                                sender = e.sender,
-                                                subject = e.subject,
-                                                body = ""
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        currentAutomator.loginResult.observeForever { success ->
-                            statusText = if (success) "Logged in, fetching..." else "Login failed"
-                        }
-
-                        loadUrl("https://app.tuta.com/login")
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-
-        if (statusText.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = statusText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun EmailCard(entry: EmailEntry) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                .weight(0.6f)
         )
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(
-                text = entry.subject,
-                style = MaterialTheme.typography.bodyLarge,
-                fontFamily = FontFamily.Monospace
-            )
-            Text(
-                text = "${entry.sender}  •  ${entry.time}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }

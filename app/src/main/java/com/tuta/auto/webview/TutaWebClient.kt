@@ -41,10 +41,7 @@ class TutaWebClient {
                     ?.replace("; wv", "")
             }
 
-            CookieManager.getInstance().apply {
-                setAcceptCookie(true)
-                setAcceptThirdPartyCookies(this@apply)
-            }
+            CookieManager.getInstance().setAcceptCookie(true)
 
             webViewClient = object : WebViewClient() {
                 override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {

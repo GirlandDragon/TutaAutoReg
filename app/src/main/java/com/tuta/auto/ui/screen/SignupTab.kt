@@ -3,7 +3,6 @@ package com.tuta.auto.ui.screen
 import android.annotation.SuppressLint
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
-import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
@@ -16,11 +15,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -28,7 +27,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -36,9 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.tuta.auto.TutaApp
 import com.tuta.auto.data.model.Account
-import com.tuta.auto.data.model.Message
 import com.tuta.auto.ui.component.AccountCard
 import com.tuta.auto.util.NameGenerator
+import com.tuta.auto.webview.SignupAutomator
+import com.tuta.auto.webview.SignupEvent
 import kotlinx.coroutines.launch
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -47,14 +46,37 @@ fun SignupTab(app: TutaApp) {
     val accounts by app.accountRepository.getAllAccounts().collectAsState(initial = emptyList())
     var emailPrefix by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var count by remember { mutableIntStateOf(1) }
     var isRunning by remember { mutableStateOf(false) }
     var statusText by remember { mutableStateOf("") }
     var webView by remember { mutableStateOf<WebView?>(null) }
     var showCaptcha by remember { mutableStateOf(false) }
-    var captchaCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
+    var automator by remember { mutableStateOf<SignupAutomator?>(null) }
+    var lastPrefix by remember { mutableStateOf("") }
+    var lastPwd by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+
+    LaunchedEffect(automator) {
+        automator?.events?.observeForever { event ->
+            when (event) {
+                is SignupEvent.Success -> {
+                    isRunning = false
+                    statusText = "Registered: ${event.email}"
+                    scope.launch {
+                        app.accountRepository.insertAccount(
+                            Account(email = event.email, password = lastPwd)
+                        )
+                    }
+                }
+                is SignupEvent.CaptchaRequired -> {
+                    showCaptcha = true
+                }
+                is SignupEvent.Error -> {
+                    isRunning = false
+                    statusText = "Error: ${event.message}"
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -81,31 +103,19 @@ fun SignupTab(app: TutaApp) {
 
         Button(
             onClick = {
-                if (isRunning) return@Button
-                isRunning = true
                 val prefix = emailPrefix.ifBlank { NameGenerator.generateEmailPrefix() }
                 val pwd = password.ifBlank { NameGenerator.generatePassword() }
+                lastPrefix = prefix
+                lastPwd = pwd
+                isRunning = true
                 statusText = "Registering $prefix@tuta.com..."
 
-                scope.launch {
-                    try {
-                        val account = Account(
-                            email = "$prefix@tuta.com",
-                            password = pwd
-                        )
-                        app.accountRepository.insertAccount(account)
-                        statusText = "Account saved: $prefix@tuta.com"
-                    } catch (e: Exception) {
-                        statusText = "Error: ${e.message}"
-                    } finally {
-                        isRunning = false
-                    }
-                }
+                automator?.startSignup(prefix, pwd)
             },
             enabled = !isRunning,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(if (isRunning) "Registering..." else "Add Account (Manual)")
+            Text(if (isRunning) "Registering..." else "Start Registration")
         }
 
         if (statusText.isNotEmpty()) {
@@ -114,6 +124,39 @@ fun SignupTab(app: TutaApp) {
                 text = statusText,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(0.dp)
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    WebView(ctx).apply {
+                        layoutParams = ViewGroup.LayoutParams(1, 1)
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        webViewClient = object : WebViewClient() {
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                super.onPageFinished(view, url)
+                                automator?.onPageLoaded(url ?: "")
+                            }
+                        }
+                        webChromeClient = object : WebChromeClient() {
+                            override fun onConsoleMessage(msg: android.webkit.ConsoleMessage?) {
+                                super.onConsoleMessage(msg)
+                            }
+                        }
+                        loadUrl("https://app.tuta.com/signup")
+                        webView = this
+                        automator = SignupAutomator(this)
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
             )
         }
 
@@ -131,10 +174,20 @@ fun SignupTab(app: TutaApp) {
             items(accounts) { account ->
                 AccountCard(
                     account = account,
-                    onClick = { /* TODO: view details */ }
+                    onClick = { }
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
+    }
+
+    if (showCaptcha) {
+        CaptchaDialog(
+            onDismiss = { showCaptcha = false },
+            onConfirm = { answer ->
+                showCaptcha = false
+                automator?.submitCaptchaAnswer(answer)
+            }
+        )
     }
 }

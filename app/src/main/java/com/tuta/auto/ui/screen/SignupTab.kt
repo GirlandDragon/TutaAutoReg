@@ -147,10 +147,6 @@ fun SignupTab(app: TutaApp) {
                             }
                         }
                         webChromeClient = object : WebChromeClient() {
-                            override fun onConsoleMessage(msg: android.webkit.ConsoleMessage?) {
-                                super.onConsoleMessage(msg)
-                            }
-                        }
                         loadUrl("https://app.tuta.com/signup")
                         webView = this
                         automator = SignupAutomator(this)

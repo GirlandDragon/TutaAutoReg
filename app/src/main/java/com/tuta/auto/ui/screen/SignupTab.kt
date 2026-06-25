@@ -2,7 +2,6 @@ package com.tuta.auto.ui.screen
 
 import android.annotation.SuppressLint
 import android.view.ViewGroup
-import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
@@ -22,13 +21,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -146,11 +143,9 @@ fun SignupTab(app: TutaApp) {
                                 automator?.onPageLoaded(url ?: "")
                             }
                         }
-                        webChromeClient = object : WebChromeClient() {
                         loadUrl("https://app.tuta.com/signup")
                         webView = this
                         automator = SignupAutomator(this)
-                    }
                 },
                 modifier = Modifier.fillMaxSize()
             )

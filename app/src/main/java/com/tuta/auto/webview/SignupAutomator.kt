@@ -142,7 +142,7 @@ class SignupAutomator(private val webView: WebView) {
     }
 
     companion object {
-        private const val INIT_SCRIPT = """
+        private val INIT_SCRIPT = """
 (function() {
     window.__tutaAuto = window.__tutaAuto || {};
     

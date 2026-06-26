@@ -1,5 +1,6 @@
 package com.tuta.auto.ui.screen
 
+import android.annotation.SuppressLint
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.webkit.WebViewClient
